@@ -15,9 +15,37 @@ This Programm is based on the Matlab implementation by:
 
 import numpy as np
 
-def fRRseriesBadIndex(RRfs,qrsFs,qrsMs,fidLog, f=1000):
-    pass
-    #return [fRR_QI]
+def fRRQI(fRR,fQRS,mQRS,fidLog=0, f=1000):
+    '''
+    - Compute a QualityIndex for fetal RR series
+        based on fetal RR variability and fetal-mother QRS position coincidences
+    ----
+       Input parameters:
+          fRR      fetal RR series 
+          fQRS     fetal QRS time positions
+          mQRS     maternal QRS time positions
+          fidLog    handle for logfile
+       Ouput parameters:
+          fRR_QI    fetal RR series quality index
+    ----
+    '''
+    meRR = np.median(fRR)/f # transform to seconds
+    if meRR < 0.35:
+        cfact = 0.3*(0.35-meRR)
+    elif meRR > 0.5:
+        cfact = 0.05*(meRR-0.5)
+    else:
+        cfact = 0
+
+    dfRR = np.diff(fRR)
+    ddfRR = np.diff(dfRR)
+    madRR = meansc(abs(dfRR),0,0.98)
+    maddRR = meansc(abs(ddfRR), 0,0.98)
+    ann=QRSdet_ann_cmp_fm(fQRS,mQRS, 0.1, 0, f)
+    cFMsim=0.05*ann["nTP"]/(0.05*ann["nTP"]+ann["nFP"]+ann["nFN"])
+
+    return madRR+maddRR+cfact+cFMsim
+
 
 
 
@@ -33,7 +61,7 @@ def meansc(x,lower_percentil=0.05,upper_percentil=0.95):
         return np.median(x)
     lower_border = np.quantile(x, lower_percentil, interpolation='lower')
     upper_border = np.quantile(x, upper_percentil, interpolation='higher')
-    in_borders = lambda i: i> lower_border and i< upper_border
+    in_borders = lambda i: lower_border < i < upper_border
 
     return np.mean([i for i in x if in_borders(i)])
 
@@ -55,7 +83,6 @@ def QRSdet_ann_cmp_fm(qrs_det,qrs_ref, maxaDiff=0.075, debug=False,f=1000):
        cmpRes.meanAbsDiff    mean of absolute differences between TP annotations
     '''
     max_dist = maxaDiff*f
-    qrs_det = qrs_det
     # nTP ... number of TP
     # meanAbsDiff ... sum(qrs_diffs of TP) / nTP
     nTP = 0
@@ -86,7 +113,7 @@ def QRSdet_ann_cmp_fm(qrs_det,qrs_ref, maxaDiff=0.075, debug=False,f=1000):
 #qrs_detet_ann_cmp_fm([0,500,1000,1500], [i+ 50 for i in [0,500,1000,1500]])
 
 
-{'nTP': 0, 'nFP': 4, 'nFN': 4, 'meanAbsDiff': nan}
+#{'nTP': 0, 'nFP': 4, 'nFN': 4, 'meanAbsDiff': nan}
 
 
 
